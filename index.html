@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAC 360</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+<div id="overlay"><h1>MAC 360°</h1><p>Explora la colección del Museo MAC</p><button id="btn">Entrar</button></div>
+<div id="infoPanel"><span>Exposición virtual</span><strong>MAC 360° · Barranco</strong></div>
+<div id="controlsHint"><span>Controles</span><strong>Arrastra · Rueda · WASD</strong></div>
+<div id="debugLog" class="hidden"></div>
+<div id="artworkInfo" class="hidden">
+  <div class="artworkInfoHeader">
+    <h3 id="artworkTitle">Título</h3>
+    <button id="closeInfo" aria-label="Cerrar ficha">×</button>
+  </div>
+  <p id="artworkDescription"></p>
+  <div class="artworkMeta">
+    <div><span>Autor</span><strong id="artworkAuthor">—</strong></div>
+    <div><span>Año</span><strong id="artworkYear">—</strong></div>
+    <div><span>Técnica</span><strong id="artworkTechnique">—</strong></div>
+    <div><span>Medidas</span><strong id="artworkMeasures">—</strong></div>
+    <div><span>Categoría</span><strong id="artworkCategory">—</strong></div>
+    <div><span>Donación</span><strong id="artworkDonation">—</strong></div>
+    <div><span>Etiquetas</span><strong id="artworkTags">—</strong></div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html> 
