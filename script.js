@@ -10,6 +10,10 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.physicallyCorrectLights=true;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.25;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 renderer.domElement.style.touchAction='none';
 document.body.style.touchAction='none';
@@ -18,11 +22,11 @@ const btn=document.getElementById('btn');
 const overlay=document.getElementById('overlay');
 btn?.addEventListener('click',()=>{overlay.style.display='none';});
 
-const ambient=new THREE.HemisphereLight(0xbfdcff,0x24110a,.7);
+const ambient=new THREE.HemisphereLight(0xbfdcff,0x29140b,.78);
 scene.add(ambient);
 
-const keyLight=new THREE.DirectionalLight(0xf6e8c8,1.2);
-keyLight.position.set(3,8,2);
+const keyLight=new THREE.DirectionalLight(0xf6e8c8,1.25);
+keyLight.position.set(4,8.2,2.6);
 keyLight.castShadow=true;
 keyLight.shadow.mapSize.set(2048,2048);
 keyLight.shadow.camera.left=-10;
@@ -31,50 +35,83 @@ keyLight.shadow.camera.top=10;
 keyLight.shadow.camera.bottom=-10;
 scene.add(keyLight);
 
-const fillLight=new THREE.PointLight(0x8fb6ff,6,24,2);
-fillLight.position.set(-4,3.5,-3);
+const fillLight=new THREE.PointLight(0x6ea8ff,6.4,24,2);
+fillLight.position.set(-4.2,3.6,-3.2);
 scene.add(fillLight);
 
-const wallMaterial=new THREE.MeshStandardMaterial({color:0x11161b,roughness:0.95,metalness:0.05});
-const floorMaterial=new THREE.MeshStandardMaterial({color:0x171717,roughness:0.95,metalness:0.04});
-const frameMaterial=new THREE.MeshStandardMaterial({color:0x0c0c0c,roughness:0.35,metalness:0.15});
-const pedestalMaterial=new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:0.7,metalness:0.1});
+const rimLight=new THREE.PointLight(0x4f6aff,2.4,18,2);
+rimLight.position.set(0,4.4,6.8);
+scene.add(rimLight);
+
+const wallMaterialBlack=new THREE.MeshStandardMaterial({
+  color:0x06080b,
+  emissive:0x020406,
+  roughness:0.48,
+  metalness:0.16
+});
+
+const wallMaterialBlue=new THREE.MeshStandardMaterial({
+  color:0x0d2143,
+  emissive:0x07142b,
+  roughness:0.42,
+  metalness:0.14
+});
+
+const floorMaterial=new THREE.MeshStandardMaterial({
+  color:0x171717,
+  roughness:0.95,
+  metalness:0.04
+});
+
+const frameMaterial=new THREE.MeshStandardMaterial({
+  color:0x0c0c0c,
+  roughness:0.35,
+  metalness:0.15
+});
+
+const pedestalMaterial=new THREE.MeshStandardMaterial({
+  color:0x1a1a1a,
+  roughness:0.72,
+  metalness:0.1
+});
 
 const roomSize=20;
-const floor=new THREE.Mesh(new THREE.PlaneGeometry(roomSize,roomSize),floorMaterial);
-floor.rotation.x=-Math.PI/2;
-floor.receiveShadow=true;
+
+function createWall(width,height,position,rotationY=0,material=wallMaterialBlack){
+  const wall=new THREE.Mesh(new THREE.PlaneGeometry(width,height),material);
+  wall.position.copy(position);
+  wall.rotation.y=rotationY;
+  wall.receiveShadow=true;
+  scene.add(wall);
+  return wall;
+}
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomSize, roomSize), floorMaterial);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
 scene.add(floor);
 
-const grid=new THREE.GridHelper(18,18,0x3a3a3a,0x171717);
-grid.position.y=0.001;
+const grid = new THREE.GridHelper(18, 18, 0x3a3a3a, 0x171717);
+grid.position.y = 0.001;
 scene.add(grid);
 
-const wallBack=new THREE.Mesh(new THREE.PlaneGeometry(roomSize,10),wallMaterial);
-wallBack.position.set(0,5,-roomSize/2);
-wallBack.receiveShadow=true;
-scene.add(wallBack);
+createWall(roomSize, 10, new THREE.Vector3(0, 5, -roomSize / 2), 0, wallMaterialBlack);
+createWall(roomSize, 10, new THREE.Vector3(0, 5, roomSize / 2), Math.PI, wallMaterialBlue);
+createWall(roomSize, 10, new THREE.Vector3(-roomSize / 2, 5, 0), Math.PI / 2, wallMaterialBlack);
+createWall(roomSize, 10, new THREE.Vector3(roomSize / 2, 5, 0), -Math.PI / 2, wallMaterialBlue);
 
-const wallFront=new THREE.Mesh(new THREE.PlaneGeometry(roomSize,10),wallMaterial);
-wallFront.position.set(0,5,roomSize/2);
-wallFront.receiveShadow=true;
-scene.add(wallFront);
-
-const wallLeft=new THREE.Mesh(new THREE.PlaneGeometry(roomSize,10),wallMaterial);
-wallLeft.rotation.y=Math.PI/2;
-wallLeft.position.set(-roomSize/2,5,0);
-wallLeft.receiveShadow=true;
-scene.add(wallLeft);
-
-const wallRight=new THREE.Mesh(new THREE.PlaneGeometry(roomSize,10),wallMaterial);
-wallRight.rotation.y=Math.PI/2;
-wallRight.position.set(roomSize/2,5,0);
-wallRight.receiveShadow=true;
-scene.add(wallRight);
-
-const ceiling=new THREE.Mesh(new THREE.PlaneGeometry(roomSize,roomSize),new THREE.MeshStandardMaterial({color:0x0d1014,roughness:0.85,metalness:0.03}));
-ceiling.rotation.x=Math.PI/2;
-ceiling.position.y=10;
+const ceiling = new THREE.Mesh(
+  new THREE.PlaneGeometry(roomSize, roomSize),
+  new THREE.MeshPhysicalMaterial({
+    color: 0x0d1014,
+    roughness: 0.84,
+    metalness: 0.03,
+    emissive: 0x06070a,
+    emissiveIntensity: 0.05
+  })
+);
+ceiling.rotation.x = Math.PI / 2;
+ceiling.position.y = 10;
 scene.add(ceiling);
 
 const obras=[];
@@ -178,6 +215,7 @@ function loadArtworkTexture(index, onLoaded){
    texture.minFilter=THREE.LinearFilter;
    texture.wrapS=THREE.ClampToEdgeWrapping;
    texture.wrapT=THREE.ClampToEdgeWrapping;
+   texture.encoding=THREE.sRGBEncoding;
    texture.needsUpdate=true;
    logDebug(`Imagen cargada: ${path}`);
    onLoaded(texture);
@@ -210,13 +248,14 @@ for(let i=1;i<=5;i++){
  marco.castShadow=true;
  marco.receiveShadow=true;
 
- const imgMaterial=new THREE.MeshBasicMaterial({color:0x222222});
+ const imgMaterial=new THREE.MeshBasicMaterial({color:0xffffff});
  const img=new THREE.Mesh(new THREE.PlaneGeometry(1.55,2.15),imgMaterial);
  img.position.z=.05;
  img.castShadow=true;
  loadArtworkTexture(i,tex=>{
   if(tex){
    tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+   tex.encoding=THREE.sRGBEncoding;
    imgMaterial.map=tex;
    imgMaterial.needsUpdate=true;
   }
@@ -410,12 +449,12 @@ addEventListener('wheel',e=>{
  e.preventDefault();
 },{passive:false});
 
-function anim(){
- requestAnimationFrame(anim);
- updateCamera();
- renderer.render(scene,camera);
+function animate() {
+  updateCamera();
+  renderer.render(scene, camera);
 }
-anim();
+
+renderer.setAnimationLoop(animate);
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
