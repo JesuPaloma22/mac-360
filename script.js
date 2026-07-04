@@ -1,6 +1,6 @@
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x040607);
-scene.fog=new THREE.Fog(0x040607,14,30);
+scene.background=new THREE.Color(0x101b24);
+scene.fog=new THREE.Fog(0x101b24,12,38);
 
 const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,1000);
 camera.position.set(0,1.7,0.1);
@@ -12,7 +12,7 @@ renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.physicallyCorrectLights=true;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.25;
+renderer.toneMappingExposure=1.5;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 renderer.domElement.style.touchAction='none';
@@ -22,57 +22,60 @@ const btn=document.getElementById('btn');
 const overlay=document.getElementById('overlay');
 btn?.addEventListener('click',()=>{overlay.style.display='none';});
 
-const ambient=new THREE.HemisphereLight(0xbfdcff,0x29140b,.78);
+const ambient=new THREE.HemisphereLight(0xeaf4ff,0x35231b,1.25);
 scene.add(ambient);
 
-const keyLight=new THREE.DirectionalLight(0xf6e8c8,1.25);
-keyLight.position.set(4,8.2,2.6);
+const keyLight=new THREE.DirectionalLight(0xfff0cc,0.9);
+keyLight.position.set(4.2,8.2,2.8);
 keyLight.castShadow=true;
 keyLight.shadow.mapSize.set(2048,2048);
 keyLight.shadow.camera.left=-10;
 keyLight.shadow.camera.right=10;
 keyLight.shadow.camera.top=10;
 keyLight.shadow.camera.bottom=-10;
+keyLight.shadow.bias=-0.0005;
+keyLight.shadow.normalBias=0.03;
+keyLight.shadow.radius=2;
 scene.add(keyLight);
 
-const fillLight=new THREE.PointLight(0x6ea8ff,6.4,24,2);
+const fillLight=new THREE.PointLight(0x7fb3ff,3.8,28,2);
 fillLight.position.set(-4.2,3.6,-3.2);
 scene.add(fillLight);
 
-const rimLight=new THREE.PointLight(0x4f6aff,2.4,18,2);
+const rimLight=new THREE.PointLight(0x6b82ff,1.2,22,2);
 rimLight.position.set(0,4.4,6.8);
 scene.add(rimLight);
 
 const wallMaterialBlack=new THREE.MeshStandardMaterial({
-  color:0x06080b,
-  emissive:0x020406,
-  roughness:0.48,
-  metalness:0.16
+  color:0x1f2530,
+  emissive:0x10141d,
+  roughness:0.58,
+  metalness:0.08
 });
 
 const wallMaterialBlue=new THREE.MeshStandardMaterial({
-  color:0x0d2143,
-  emissive:0x07142b,
-  roughness:0.42,
-  metalness:0.14
+  color:0x2d4867,
+  emissive:0x14253c,
+  roughness:0.5,
+  metalness:0.06
 });
 
 const floorMaterial=new THREE.MeshStandardMaterial({
-  color:0x171717,
-  roughness:0.95,
-  metalness:0.04
+  color:0x23272d,
+  roughness:0.9,
+  metalness:0.03
 });
 
 const frameMaterial=new THREE.MeshStandardMaterial({
-  color:0x0c0c0c,
-  roughness:0.35,
-  metalness:0.15
+  color:0xe8dfcf,
+  roughness:0.28,
+  metalness:0.05
 });
 
 const pedestalMaterial=new THREE.MeshStandardMaterial({
-  color:0x1a1a1a,
-  roughness:0.72,
-  metalness:0.1
+  color:0x2b2b2b,
+  roughness:0.7,
+  metalness:0.08
 });
 
 const roomSize=20;
@@ -103,11 +106,11 @@ createWall(roomSize, 10, new THREE.Vector3(roomSize / 2, 5, 0), -Math.PI / 2, wa
 const ceiling = new THREE.Mesh(
   new THREE.PlaneGeometry(roomSize, roomSize),
   new THREE.MeshPhysicalMaterial({
-    color: 0x0d1014,
-    roughness: 0.84,
-    metalness: 0.03,
-    emissive: 0x06070a,
-    emissiveIntensity: 0.05
+    color: 0xf3f5f7,
+    roughness: 0.86,
+    metalness: 0.02,
+    emissive: 0x0c1117,
+    emissiveIntensity: 0.03
   })
 );
 ceiling.rotation.x = Math.PI / 2;
@@ -229,29 +232,22 @@ function loadArtworkTexture(index, onLoaded){
  tryNext();
 }
 
-const debugLog=document.getElementById('debugLog');
-function logDebug(message, isError=false){
- if(!debugLog)return;
- debugLog.classList.remove('hidden');
- const item=document.createElement('p');
- item.textContent=message;
- if(isError) item.style.color='#ff8080';
- debugLog.appendChild(item);
- debugLog.scrollTop=debugLog.scrollHeight;
+function logDebug(){
+ return;
 }
 
 for(let i=1;i<=5;i++){
  const ang=(i-1)*Math.PI*2/5;
  const g=new THREE.Group();
 
- const marco=new THREE.Mesh(new THREE.BoxGeometry(1.8,2.45,.08),frameMaterial);
- marco.castShadow=true;
- marco.receiveShadow=true;
+ const marco=new THREE.Mesh(new THREE.BoxGeometry(2.1,2.8,.06),frameMaterial);
+ marco.castShadow=false;
+ marco.receiveShadow=false;
 
  const imgMaterial=new THREE.MeshBasicMaterial({color:0xffffff});
- const img=new THREE.Mesh(new THREE.PlaneGeometry(1.55,2.15),imgMaterial);
- img.position.z=.05;
- img.castShadow=true;
+ const img=new THREE.Mesh(new THREE.PlaneGeometry(1.8,2.5),imgMaterial);
+ img.position.z=.04;
+ img.castShadow=false;
  loadArtworkTexture(i,tex=>{
   if(tex){
    tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
@@ -261,15 +257,15 @@ for(let i=1;i<=5;i++){
   }
  });
 
- const pedestal=new THREE.Mesh(new THREE.CylinderGeometry(.28,.36,.6,24),pedestalMaterial);
- pedestal.position.set(0,-1.1,0);
- pedestal.castShadow=true;
- pedestal.receiveShadow=true;
+ const pedestal=new THREE.Mesh(new THREE.CylinderGeometry(.01,.01,.01,4),pedestalMaterial);
+ pedestal.position.set(0,-1.3,0);
+ pedestal.castShadow=false;
+ pedestal.receiveShadow=false;
 
- const base=new THREE.Mesh(new THREE.BoxGeometry(1.2,.12,1.2),new THREE.MeshStandardMaterial({color:0x141414,roughness:0.8,metalness:0.08}));
- base.position.set(0,-1.4,0);
- base.castShadow=true;
- base.receiveShadow=true;
+ const base=new THREE.Mesh(new THREE.BoxGeometry(.001,.001,.001),new THREE.MeshStandardMaterial({color:0x000000,roughness:1,metalness:0}));
+ base.position.set(0,-1.3,0);
+ base.castShadow=false;
+ base.receiveShadow=false;
 
  const labelCanvas=document.createElement('canvas');
  labelCanvas.width=512;
@@ -294,12 +290,11 @@ for(let i=1;i<=5;i++){
  label.position.set(0,1.55,0.16);
  label.renderOrder=10;
 
- const spotlight=new THREE.SpotLight(0xfff0c2,.65,8,Math.PI/8,0.45,1.2);
+ const spotlight=new THREE.SpotLight(0xfff0c2,.32,8,Math.PI/8,0.45,1.2);
  spotlight.position.set(Math.cos(ang)*4.2,4.4,Math.sin(ang)*4.2);
  spotlight.target.position.set(0,1.8,0);
  scene.add(spotlight.target);
- spotlight.castShadow=true;
- spotlight.shadow.mapSize.set(1024,1024);
+ spotlight.castShadow=false;
  scene.add(spotlight);
 
  const hitbox=new THREE.Mesh(new THREE.BoxGeometry(2.4,3.2,.2),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));
