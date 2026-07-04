@@ -395,7 +395,14 @@ const isAndroid=()=>/android/i.test(navigator.userAgent);
 let gyroEnabled=false,gyroAvailable=false;
 let deviceAlpha=0,deviceBeta=0,deviceGamma=0;
 let lastAlpha=0,lastBeta=0,lastGamma=0;
-const gyroSmoothFactor=0.15;
+// Ajustes más suaves para que el movimiento del celular se sienta natural y estable.
+const gyroSmoothFactor=0.18;
+const gyroSensitivityYaw=0.008;
+const gyroSensitivityPitch=0.008;
+const gyroDeadzone=0.8;
+const gyroFollowFactor=0.12;
+let gyroTargetYaw=Math.PI/2;
+let gyroTargetPitch=0;
 
 function isGyroSupported(){
  return 'DeviceOrientationEvent' in window;
@@ -413,9 +420,14 @@ async function initGyro(){
 
 function handleDeviceOrientation(event){
  if(!gyroEnabled)return;
+ const rawGamma=event.gamma||0;
+ const rawBeta=event.beta||0;
+ // Se ignoran pequeñas vibraciones para evitar saltos innecesarios.
+ const gamma=Math.abs(rawGamma)<gyroDeadzone?0:rawGamma;
+ const beta=Math.abs(rawBeta)<gyroDeadzone?0:rawBeta;
  deviceAlpha=event.alpha||0;
- deviceBeta=event.beta||0;
- deviceGamma=event.gamma||0;
+ deviceBeta=beta;
+ deviceGamma=gamma;
 }
 
 function toggleGyroMode(){
@@ -427,6 +439,8 @@ function toggleGyroMode(){
   lastAlpha=deviceAlpha;
   lastBeta=deviceBeta;
   lastGamma=deviceGamma;
+  gyroTargetYaw=yaw;
+  gyroTargetPitch=pitch;
   renderer.domElement.style.touchAction='none';
   touchState=null;
  }else{
@@ -437,11 +451,17 @@ function toggleGyroMode(){
 
 function applyGyroRotation(){
  if(!gyroEnabled)return;
+ // Filtro de baja frecuencia para que la orientación del visor responda con suavidad.
  lastAlpha+=(deviceAlpha-lastAlpha)*gyroSmoothFactor;
  lastBeta+=(deviceBeta-lastBeta)*gyroSmoothFactor;
  lastGamma+=(deviceGamma-lastGamma)*gyroSmoothFactor;
- yaw=-lastGamma*0.025+Math.PI/2;
- pitch=-lastBeta*0.018;
+ const targetYaw=-lastGamma*gyroSensitivityYaw+Math.PI/2;
+ const targetPitch=-lastBeta*gyroSensitivityPitch;
+ // Se sigue la orientación objetivo de forma gradual para evitar cortes o paradas.
+ gyroTargetYaw+=(targetYaw-gyroTargetYaw)*gyroFollowFactor;
+ gyroTargetPitch+=(targetPitch-gyroTargetPitch)*gyroFollowFactor;
+ yaw+=(gyroTargetYaw-yaw)*gyroFollowFactor;
+ pitch+=(gyroTargetPitch-pitch)*gyroFollowFactor;
  pitch=Math.max(-1.2,Math.min(1.2,pitch));
  vx=0;vy=0;
 }
