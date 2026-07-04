@@ -356,6 +356,7 @@ renderer.domElement.addEventListener('click',event=>{
 
 let touchState=null;
 renderer.domElement.addEventListener('touchstart',event=>{
+ if(gyroEnabled)return;
  if(event.touches.length===1){
   const touch=event.touches[0];
   touchState={mode:'rotate',startX:touch.clientX,startY:touch.clientY,startYaw:yaw,startPitch:pitch};
@@ -388,6 +389,63 @@ renderer.domElement.addEventListener('touchend',()=>{touchState=null;});
 
 let yaw=0,pitch=0,drag=false,vx=0,vy=0;
 let moveForward=false,moveBackward=false,moveLeft=false,moveRight=false;
+
+// ========== GIROSCOPIO (ANDROID ONLY) ==========
+const isAndroid=()=>/android/i.test(navigator.userAgent);
+let gyroEnabled=false,gyroAvailable=false;
+let deviceAlpha=0,deviceBeta=0,deviceGamma=0;
+let lastAlpha=0,lastBeta=0,lastGamma=0;
+const gyroSmoothFactor=0.15;
+
+function isGyroSupported(){
+ return 'DeviceOrientationEvent' in window;
+}
+
+async function initGyro(){
+ if(!isAndroid()||!isGyroSupported())return;
+ const vrBtn=document.getElementById('vrModeBtn');
+ if(!vrBtn)return;
+ vrBtn.classList.remove('hidden');
+ gyroAvailable=true;
+ vrBtn.addEventListener('click',toggleGyroMode);
+ window.addEventListener('deviceorientation',handleDeviceOrientation);
+}
+
+function handleDeviceOrientation(event){
+ if(!gyroEnabled)return;
+ deviceAlpha=event.alpha||0;
+ deviceBeta=event.beta||0;
+ deviceGamma=event.gamma||0;
+}
+
+function toggleGyroMode(){
+ const vrBtn=document.getElementById('vrModeBtn');
+ if(!vrBtn)return;
+ gyroEnabled=!gyroEnabled;
+ if(gyroEnabled){
+  vrBtn.classList.add('active');
+  lastAlpha=deviceAlpha;
+  lastBeta=deviceBeta;
+  lastGamma=deviceGamma;
+  renderer.domElement.style.touchAction='none';
+  touchState=null;
+ }else{
+  vrBtn.classList.remove('active');
+  renderer.domElement.style.touchAction='auto';
+ }
+}
+
+function applyGyroRotation(){
+ if(!gyroEnabled)return;
+ lastAlpha+=(deviceAlpha-lastAlpha)*gyroSmoothFactor;
+ lastBeta+=(deviceBeta-lastBeta)*gyroSmoothFactor;
+ lastGamma+=(deviceGamma-lastGamma)*gyroSmoothFactor;
+ yaw=-lastGamma*0.025+Math.PI/2;
+ pitch=-lastBeta*0.018;
+ pitch=Math.max(-1.2,Math.min(1.2,pitch));
+ vx=0;vy=0;
+}
+
 const moveSpeed=0.11;
 const maxRoomDistance=8.6;
 
@@ -402,6 +460,7 @@ function clampCameraToRoom(){
 }
 
 function updateCamera(){
+ applyGyroRotation();
  const forward=new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
  const right=new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
  if(moveForward)camera.position.addScaledVector(forward,moveSpeed);
@@ -450,6 +509,8 @@ function animate() {
 }
 
 renderer.setAnimationLoop(animate);
+
+initGyro();
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
