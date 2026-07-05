@@ -395,6 +395,7 @@ const isAndroid=()=>/android/i.test(navigator.userAgent);
 let gyroEnabled=false,gyroAvailable=false;
 let deviceAlpha=0,deviceBeta=0,deviceGamma=0;
 let lastAlpha=0,lastBeta=0,lastGamma=0;
+let screenOrientationAngle=0;
 // Ajustes más suaves para que el movimiento del celular se sienta natural y estable.
 const gyroSmoothFactor=0.18;
 const gyroSensitivityYaw=0.008;
@@ -408,23 +409,74 @@ function isGyroSupported(){
  return 'DeviceOrientationEvent' in window;
 }
 
+function normalizeOrientationAngle(angle){
+ const normalized=((angle%360)+360)%360;
+ return normalized===360?0:normalized;
+}
+
+function getScreenOrientationAngle(){
+ if(window.screen?.orientation?.angle!=null){
+  return normalizeOrientationAngle(window.screen.orientation.angle);
+ }
+ if(typeof window.orientation==='number'){
+  return normalizeOrientationAngle(window.orientation);
+ }
+ return 0;
+}
+
+function syncScreenOrientation(){
+ screenOrientationAngle=getScreenOrientationAngle();
+}
+
+function remapGyroToScreenAxes(event){
+ const rawGamma=event.gamma||0;
+ const rawBeta=event.beta||0;
+ let gamma=rawGamma;
+ let beta=rawBeta;
+
+ // El giroscopio entrega valores en coordenadas del dispositivo; al cambiar entre portrait y landscape
+ // esos ejes deben reorientarse para mantener la intuición del movimiento en la cámara.
+ switch(screenOrientationAngle){
+  case 90:
+   gamma=-rawBeta;
+   beta=rawGamma;
+   break;
+  case 180:
+   gamma=-rawGamma;
+   beta=-rawBeta;
+   break;
+  case 270:
+   gamma=rawBeta;
+   beta=-rawGamma;
+   break;
+  default:
+   gamma=rawGamma;
+   beta=rawBeta;
+   break;
+ }
+
+ // Se ignoran pequeñas vibraciones para evitar saltos innecesarios.
+ gamma=Math.abs(gamma)<gyroDeadzone?0:gamma;
+ beta=Math.abs(beta)<gyroDeadzone?0:beta;
+ return {gamma,beta};
+}
+
 async function initGyro(){
  if(!isAndroid()||!isGyroSupported())return;
  const vrBtn=document.getElementById('vrModeBtn');
  if(!vrBtn)return;
  vrBtn.classList.remove('hidden');
  gyroAvailable=true;
+ syncScreenOrientation();
  vrBtn.addEventListener('click',toggleGyroMode);
  window.addEventListener('deviceorientation',handleDeviceOrientation);
+ window.addEventListener('orientationchange',syncScreenOrientation);
+ window.screen?.orientation?.addEventListener?.('change',syncScreenOrientation);
 }
 
 function handleDeviceOrientation(event){
  if(!gyroEnabled)return;
- const rawGamma=event.gamma||0;
- const rawBeta=event.beta||0;
- // Se ignoran pequeñas vibraciones para evitar saltos innecesarios.
- const gamma=Math.abs(rawGamma)<gyroDeadzone?0:rawGamma;
- const beta=Math.abs(rawBeta)<gyroDeadzone?0:rawBeta;
+ const {gamma,beta}=remapGyroToScreenAxes(event);
  deviceAlpha=event.alpha||0;
  deviceBeta=beta;
  deviceGamma=gamma;
