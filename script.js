@@ -389,6 +389,7 @@ renderer.domElement.addEventListener('touchend',()=>{touchState=null;});
 
 let yaw=0,pitch=0,drag=false,vx=0,vy=0;
 let moveForward=false,moveBackward=false,moveLeft=false,moveRight=false;
+const clock=new THREE.Clock();
 
 // ========== GIROSCOPIO (ANDROID ONLY) ==========
 const isAndroid=()=>/android/i.test(navigator.userAgent);
@@ -396,12 +397,13 @@ let gyroEnabled=false,gyroAvailable=false;
 let deviceAlpha=0,deviceBeta=0,deviceGamma=0;
 let lastAlpha=0,lastBeta=0,lastGamma=0;
 let screenOrientationAngle=0;
-// Ajustes más suaves para que el movimiento del celular se sienta natural y estable.
-const gyroSmoothFactor=0.18;
+// Ajustes pensados para que el movimiento se sienta fluido, estable y natural.
+const gyroSmoothFactor=0.24;
 const gyroSensitivityYaw=0.008;
 const gyroSensitivityPitch=0.008;
-const gyroDeadzone=0.8;
-const gyroFollowFactor=0.12;
+const gyroDeadzone=0.55;
+const gyroFollowFactor=0.16;
+const gyroOutputDamping=0.14;
 let gyroTargetYaw=Math.PI/2;
 let gyroTargetPitch=0;
 
@@ -477,9 +479,12 @@ async function initGyro(){
 function handleDeviceOrientation(event){
  if(!gyroEnabled)return;
  const {gamma,beta}=remapGyroToScreenAxes(event);
+ // Se filtra el ruido del sensor para eliminar vibraciones pequeñas sin cambiar el mapeo de ejes.
+ const filteredGamma=Math.abs(gamma)<gyroDeadzone?0:gamma;
+ const filteredBeta=Math.abs(beta)<gyroDeadzone?0:beta;
  deviceAlpha=event.alpha||0;
- deviceBeta=beta;
- deviceGamma=gamma;
+ deviceBeta+=(filteredBeta-deviceBeta)*gyroSmoothFactor;
+ deviceGamma+=(filteredGamma-deviceGamma)*gyroSmoothFactor;
 }
 
 function toggleGyroMode(){
@@ -501,7 +506,7 @@ function toggleGyroMode(){
  }
 }
 
-function applyGyroRotation(){
+function applyGyroRotation(delta=0){
  if(!gyroEnabled)return;
  // Filtro de baja frecuencia para que la orientación del visor responda con suavidad.
  lastAlpha+=(deviceAlpha-lastAlpha)*gyroSmoothFactor;
@@ -509,11 +514,14 @@ function applyGyroRotation(){
  lastGamma+=(deviceGamma-lastGamma)*gyroSmoothFactor;
  const targetYaw=-lastGamma*gyroSensitivityYaw+Math.PI/2;
  const targetPitch=-lastBeta*gyroSensitivityPitch;
- // Se sigue la orientación objetivo de forma gradual para evitar cortes o paradas.
- gyroTargetYaw+=(targetYaw-gyroTargetYaw)*gyroFollowFactor;
- gyroTargetPitch+=(targetPitch-gyroTargetPitch)*gyroFollowFactor;
- yaw+=(gyroTargetYaw-yaw)*gyroFollowFactor;
- pitch+=(gyroTargetPitch-pitch)*gyroFollowFactor;
+ const frameScale=Math.min(Math.max(delta*60,0.5),2);
+ const followAlpha=1-Math.exp(-gyroFollowFactor*frameScale);
+ const outputAlpha=1-Math.exp(-gyroOutputDamping*frameScale);
+ // Se interpola hacia la orientación objetivo con amortiguado para evitar movimientos secos o robóticos.
+ gyroTargetYaw+=(targetYaw-gyroTargetYaw)*followAlpha;
+ gyroTargetPitch+=(targetPitch-gyroTargetPitch)*followAlpha;
+ yaw=THREE.MathUtils.damp(yaw,gyroTargetYaw,outputAlpha,delta);
+ pitch=THREE.MathUtils.damp(pitch,gyroTargetPitch,outputAlpha,delta);
  pitch=Math.max(-1.2,Math.min(1.2,pitch));
  vx=0;vy=0;
 }
@@ -531,8 +539,8 @@ function clampCameraToRoom(){
  pos.y=Math.max(1.2,Math.min(2.5,pos.y));
 }
 
-function updateCamera(){
- applyGyroRotation();
+function updateCamera(delta=0){
+ applyGyroRotation(delta);
  const forward=new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));
  const right=new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw));
  if(moveForward)camera.position.addScaledVector(forward,moveSpeed);
@@ -576,7 +584,8 @@ addEventListener('wheel',e=>{
 },{passive:false});
 
 function animate() {
-  updateCamera();
+  const delta=clock.getDelta();
+  updateCamera(delta);
   renderer.render(scene, camera);
 }
 
