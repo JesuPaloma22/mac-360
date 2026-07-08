@@ -397,11 +397,9 @@ let gyroEnabled=false,gyroAvailable=false;
 let deviceAlpha=0,deviceBeta=0,deviceGamma=0;
 let lastAlpha=0,lastBeta=0,lastGamma=0;
 let screenOrientationAngle=0;
-let gyroReferenceYaw=0;
-let gyroYawCalibration=0;
 // Ajustes pensados para que el movimiento se sienta fluido, estable y natural.
 const gyroSmoothFactor=0.24;
-const gyroSensitivityYaw=THREE.MathUtils.DEG2RAD;
+const gyroSensitivityYaw=0.008;
 const gyroSensitivityPitch=0.008;
 const gyroDeadzone=0.55;
 const gyroFollowFactor=0.16;
@@ -416,26 +414,6 @@ function isGyroSupported(){
 function normalizeOrientationAngle(angle){
  const normalized=((angle%360)+360)%360;
  return normalized===360?0:normalized;
-}
-
-function normalizeSignedAngle(angle){
- const normalized=(((angle+180)%360)+360)%360 - 180;
- return normalized;
-}
-
-function normalizeSignedAngleRad(angle){
- const normalized=(((angle+Math.PI)%(2*Math.PI))+2*Math.PI)%(2*Math.PI) - Math.PI;
- return normalized;
-}
-
-function dampAngleDegrees(value,target,lambda,delta){
- const diff=normalizeSignedAngle(target-value);
- return value + diff*(1-Math.exp(-lambda*delta));
-}
-
-function dampAngleRadians(value,target,lambda,delta){
- const diff=normalizeSignedAngleRad(target-value);
- return value + diff*(1-Math.exp(-lambda*delta));
 }
 
 function getScreenOrientationAngle(){
@@ -518,8 +496,6 @@ function toggleGyroMode(){
   lastAlpha=deviceAlpha;
   lastBeta=deviceBeta;
   lastGamma=deviceGamma;
-  gyroReferenceYaw=yaw;
-  gyroYawCalibration=normalizeOrientationAngle(deviceAlpha);
   gyroTargetYaw=yaw;
   gyroTargetPitch=pitch;
   renderer.domElement.style.touchAction='none';
@@ -533,12 +509,10 @@ function toggleGyroMode(){
 function applyGyroRotation(delta=0){
  if(!gyroEnabled)return;
  // Filtro de baja frecuencia para que la orientación del visor responda con suavidad.
- lastAlpha=dampAngleDegrees(lastAlpha,deviceAlpha,gyroSmoothFactor,delta);
+ lastAlpha+=(deviceAlpha-lastAlpha)*gyroSmoothFactor;
  lastBeta+=(deviceBeta-lastBeta)*gyroSmoothFactor;
  lastGamma+=(deviceGamma-lastGamma)*gyroSmoothFactor;
- const currentAlpha=normalizeOrientationAngle(lastAlpha);
- const deltaAlpha=normalizeSignedAngle(currentAlpha-gyroYawCalibration);
- const targetYaw=gyroReferenceYaw + deltaAlpha*gyroSensitivityYaw;
+ const targetYaw=-lastGamma*gyroSensitivityYaw+Math.PI/2;
  const targetPitch=-lastBeta*gyroSensitivityPitch;
  const frameScale=Math.min(Math.max(delta*60,0.5),2);
  const followAlpha=1-Math.exp(-gyroFollowFactor*frameScale);
@@ -546,7 +520,7 @@ function applyGyroRotation(delta=0){
  // Se interpola hacia la orientación objetivo con amortiguado para evitar movimientos secos o robóticos.
  gyroTargetYaw+=(targetYaw-gyroTargetYaw)*followAlpha;
  gyroTargetPitch+=(targetPitch-gyroTargetPitch)*followAlpha;
- yaw=dampAngleRadians(yaw,gyroTargetYaw,outputAlpha,delta);
+ yaw=THREE.MathUtils.damp(yaw,gyroTargetYaw,outputAlpha,delta);
  pitch=THREE.MathUtils.damp(pitch,gyroTargetPitch,outputAlpha,delta);
  pitch=Math.max(-1.2,Math.min(1.2,pitch));
  vx=0;vy=0;
