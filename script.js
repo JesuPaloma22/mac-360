@@ -397,15 +397,15 @@ let gyroEnabled=false,gyroAvailable=false;
 let deviceAlpha=0,deviceBeta=0,deviceGamma=0;
 let lastAlpha=0,lastBeta=0,lastGamma=0;
 let screenOrientationAngle=0;
-// Ajustes pensados para que el movimiento se sienta fluido, estable y natural.
-const gyroSmoothFactor=0.24;
-const gyroSensitivityYaw=0.008;
+let gyroReferenceYaw=0;
+let gyroYawCalibration=0;
+// Ajustes pensados para que el movimiento del giroscopio responda rápido y sin sacudidas.
+const gyroAlphaSmoothFactor=4.8;
+const gyroSensitivityYaw=THREE.MathUtils.DEG2RAD;
 const gyroSensitivityPitch=0.008;
 const gyroDeadzone=0.55;
-const gyroFollowFactor=0.16;
-const gyroOutputDamping=0.14;
-let gyroTargetYaw=Math.PI/2;
-let gyroTargetPitch=0;
+const gyroYawDamping=8.2;
+const gyroPitchDamping=8.5;
 
 function isGyroSupported(){
  return 'DeviceOrientationEvent' in window;
@@ -414,6 +414,26 @@ function isGyroSupported(){
 function normalizeOrientationAngle(angle){
  const normalized=((angle%360)+360)%360;
  return normalized===360?0:normalized;
+}
+
+function normalizeSignedAngle(angle){
+ const normalized=(((angle+180)%360)+360)%360 - 180;
+ return normalized;
+}
+
+function normalizeSignedAngleRad(angle){
+ const normalized=(((angle+Math.PI)%(2*Math.PI))+2*Math.PI)%(2*Math.PI) - Math.PI;
+ return normalized;
+}
+
+function dampAngleDegrees(value,target,lambda,delta){
+ const diff=normalizeSignedAngle(target-value);
+ return value + diff*(1-Math.exp(-lambda*delta));
+}
+
+function dampAngleRadians(value,target,lambda,delta){
+ const diff=normalizeSignedAngleRad(target-value);
+ return value + diff*(1-Math.exp(-lambda*delta));
 }
 
 function getScreenOrientationAngle(){
@@ -479,12 +499,10 @@ async function initGyro(){
 function handleDeviceOrientation(event){
  if(!gyroEnabled)return;
  const {gamma,beta}=remapGyroToScreenAxes(event);
- // Se filtra el ruido del sensor para eliminar vibraciones pequeñas sin cambiar el mapeo de ejes.
- const filteredGamma=Math.abs(gamma)<gyroDeadzone?0:gamma;
- const filteredBeta=Math.abs(beta)<gyroDeadzone?0:beta;
+ // Aplicamos solo el deadzone al sensor. El suavizado principal se hace al actualizar la cámara.
  deviceAlpha=event.alpha||0;
- deviceBeta+=(filteredBeta-deviceBeta)*gyroSmoothFactor;
- deviceGamma+=(filteredGamma-deviceGamma)*gyroSmoothFactor;
+ deviceBeta=Math.abs(beta)<gyroDeadzone?0:beta;
+ deviceGamma=Math.abs(gamma)<gyroDeadzone?0:gamma;
 }
 
 function toggleGyroMode(){
@@ -496,6 +514,8 @@ function toggleGyroMode(){
   lastAlpha=deviceAlpha;
   lastBeta=deviceBeta;
   lastGamma=deviceGamma;
+  gyroReferenceYaw=yaw;
+  gyroYawCalibration=normalizeOrientationAngle(deviceAlpha);
   gyroTargetYaw=yaw;
   gyroTargetPitch=pitch;
   renderer.domElement.style.touchAction='none';
@@ -508,20 +528,13 @@ function toggleGyroMode(){
 
 function applyGyroRotation(delta=0){
  if(!gyroEnabled)return;
- // Filtro de baja frecuencia para que la orientación del visor responda con suavidad.
- lastAlpha+=(deviceAlpha-lastAlpha)*gyroSmoothFactor;
- lastBeta+=(deviceBeta-lastBeta)*gyroSmoothFactor;
- lastGamma+=(deviceGamma-lastGamma)*gyroSmoothFactor;
- const targetYaw=-lastGamma*gyroSensitivityYaw+Math.PI/2;
- const targetPitch=-lastBeta*gyroSensitivityPitch;
- const frameScale=Math.min(Math.max(delta*60,0.5),2);
- const followAlpha=1-Math.exp(-gyroFollowFactor*frameScale);
- const outputAlpha=1-Math.exp(-gyroOutputDamping*frameScale);
- // Se interpola hacia la orientación objetivo con amortiguado para evitar movimientos secos o robóticos.
- gyroTargetYaw+=(targetYaw-gyroTargetYaw)*followAlpha;
- gyroTargetPitch+=(targetPitch-gyroTargetPitch)*followAlpha;
- yaw=THREE.MathUtils.damp(yaw,gyroTargetYaw,outputAlpha,delta);
- pitch=THREE.MathUtils.damp(pitch,gyroTargetPitch,outputAlpha,delta);
+ lastAlpha=dampAngleDegrees(lastAlpha,deviceAlpha,gyroAlphaSmoothFactor,delta);
+ const currentAlpha=normalizeOrientationAngle(lastAlpha);
+ const deltaAlpha=normalizeSignedAngle(currentAlpha-gyroYawCalibration);
+ const targetYaw=gyroReferenceYaw + deltaAlpha*gyroSensitivityYaw;
+ const targetPitch=-deviceBeta*gyroSensitivityPitch;
+ yaw=dampAngleRadians(yaw,targetYaw,gyroYawDamping,delta);
+ pitch=THREE.MathUtils.damp(pitch,targetPitch,gyroPitchDamping,delta);
  pitch=Math.max(-1.2,Math.min(1.2,pitch));
  vx=0;vy=0;
 }
